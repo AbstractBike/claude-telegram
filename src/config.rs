@@ -12,6 +12,12 @@ pub struct Config {
     pub inter_agent: InterAgentConfig,
     #[serde(default)]
     pub observability: ObservabilityConfig,
+    pub vault: Option<VaultConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct VaultConfig {
+    pub root: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -38,6 +44,8 @@ pub struct ControlRoomConfig {
     pub room_id: String,
 }
 
+fn default_true() -> bool { true }
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct AgentConfig {
     pub room_id: String,
@@ -45,6 +53,8 @@ pub struct AgentConfig {
     pub store_dir: String,
     pub timeout_secs: Option<u64>,
     pub allowed_users: Option<Vec<String>>,
+    #[serde(default = "default_true")]
+    pub encrypt: bool,
 }
 
 impl AgentConfig {

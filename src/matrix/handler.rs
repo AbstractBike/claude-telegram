@@ -29,7 +29,7 @@ pub enum AuthResult {
 /// Messages with the `[from:<agent>, depth:<n>]` prefix are inter-agent messages.
 /// Everything else is a regular user message.
 pub fn classify_message(text: &str, max_depth: u8) -> MessageSource {
-    if text.starts_with('!') {
+    if text.starts_with('!') || text.starts_with('/') {
         return MessageSource::ControlCommand(text.to_string());
     }
 

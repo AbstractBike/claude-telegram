@@ -118,3 +118,71 @@ fn default_path_is_not_empty() {
     assert!(!path.as_os_str().is_empty());
     assert!(path.to_str().unwrap().contains("claude-chat"));
 }
+
+#[test]
+fn agent_encrypt_defaults_to_true() {
+    let toml = r#"
+[matrix]
+homeserver = "http://localhost"
+user = "@bot:localhost"
+password_file = "/tmp/pw"
+
+[auth]
+default_allowed_users = []
+
+[rooms.control]
+room_id = "!ctrl:localhost"
+
+[rooms.agents.myagent]
+room_id = "!agent:localhost"
+work_dir = "/tmp/work"
+store_dir = "/tmp/store"
+"#;
+    let config = Config::from_str(toml).unwrap();
+    assert!(config.rooms.agents["myagent"].encrypt);
+}
+
+#[test]
+fn agent_encrypt_can_be_disabled() {
+    let toml = r#"
+[matrix]
+homeserver = "http://localhost"
+user = "@bot:localhost"
+password_file = "/tmp/pw"
+
+[auth]
+default_allowed_users = []
+
+[rooms.control]
+room_id = "!ctrl:localhost"
+
+[rooms.agents.myagent]
+room_id = "!agent:localhost"
+work_dir = "/tmp/work"
+store_dir = "/tmp/store"
+encrypt = false
+"#;
+    let config = Config::from_str(toml).unwrap();
+    assert!(!config.rooms.agents["myagent"].encrypt);
+}
+
+#[test]
+fn vault_config_parsed() {
+    let toml = r#"
+[matrix]
+homeserver = "http://localhost"
+user = "@bot:localhost"
+password_file = "/tmp/pw"
+
+[auth]
+default_allowed_users = []
+
+[rooms.control]
+room_id = "!ctrl:localhost"
+
+[vault]
+root = "/home/digger/.config/claude-chat/vault"
+"#;
+    let config = Config::from_str(toml).unwrap();
+    assert_eq!(config.vault.as_ref().unwrap().root, "/home/digger/.config/claude-chat/vault");
+}

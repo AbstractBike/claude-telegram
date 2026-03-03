@@ -31,6 +31,12 @@ fn classifies_depth_exceeded() {
 }
 
 #[test]
+fn classifies_slash_command() {
+    let result = classify_message("/list", 3);
+    assert!(matches!(result, MessageSource::ControlCommand(_)));
+}
+
+#[test]
 fn auth_allows_permitted_user() {
     let allowed = vec!["@alice:host".to_string()];
     assert!(matches!(

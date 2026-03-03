@@ -15,6 +15,29 @@ use crate::matrix::handler::{classify_message, check_auth, AuthResult, MessageSo
 use crate::matrix::sender::send_text;
 use crate::session::claude::ClaudeSession;
 
+/// Write `.mcp.json` into the agent's work_dir so Claude CLI picks up the vault MCP server.
+async fn write_mcp_config(work_dir: &str, agent_name: &str, vault_root: &str) {
+    let claude_chat_bin = std::env::current_exe()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "claude-chat".to_string());
+
+    let config = serde_json::json!({
+        "mcpServers": {
+            "vault": {
+                "command": claude_chat_bin,
+                "args": ["mcp-vault", "--vault-root", vault_root, "--agent", agent_name]
+            }
+        }
+    });
+
+    let path = std::path::Path::new(work_dir).join(".mcp.json");
+    if let Err(e) = tokio::fs::write(&path, serde_json::to_string_pretty(&config).unwrap()).await {
+        tracing::warn!(agent = %agent_name, error = %e, "failed to write .mcp.json");
+    } else {
+        tracing::debug!(agent = %agent_name, path = %path.display(), "wrote .mcp.json");
+    }
+}
+
 /// Derive session ID from room alias (e.g. "#nixos-agent:matrix.pin" -> "nixos-agent")
 pub fn derive_session_id(alias: &str) -> String {
     let stripped = alias.strip_prefix('#').unwrap_or(alias);
@@ -152,6 +175,12 @@ async fn handle_room_message(
         }
         MessageSource::UserMessage(text) | MessageSource::AgentMessage { text, .. } => {
             tracing::info!(agent = %agent_name, "spawning Claude session");
+
+            if agent_config.encrypt {
+                if let Some(ref vault) = config.vault {
+                    write_mcp_config(&agent_config.work_dir, &agent_name, &vault.root).await;
+                }
+            }
 
             let session = ClaudeSession::new_sandboxed(
                 agent_name.clone(),

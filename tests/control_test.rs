@@ -68,3 +68,24 @@ fn returns_none_for_unknown_command() {
 fn returns_none_for_non_command() {
     assert!(parse_control_command("hello world").is_none());
 }
+
+#[test]
+fn parses_slash_list_command() {
+    assert!(matches!(parse_control_command("/list"), Some(ControlCommand::List)));
+}
+
+#[test]
+fn parses_slash_status_command() {
+    assert!(matches!(parse_control_command("/status"), Some(ControlCommand::Status)));
+}
+
+#[test]
+fn parses_slash_reset_command() {
+    let cmd = parse_control_command("/reset nixos");
+    assert!(matches!(cmd, Some(ControlCommand::Reset(ref name)) if name == "nixos"));
+}
+
+#[test]
+fn parses_slash_help_command() {
+    assert!(matches!(parse_control_command("/help"), Some(ControlCommand::Help)));
+}

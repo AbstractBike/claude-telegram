@@ -32,7 +32,7 @@ pub enum ControlCommand {
 ///
 /// Returns `None` if the text does not start with `!` or is not a recognized command.
 pub fn parse_control_command(text: &str) -> Option<ControlCommand> {
-    let text = text.strip_prefix('!')?;
+    let text = text.strip_prefix('!').or_else(|| text.strip_prefix('/'))?;
     let text = text.trim();
     let mut parts = text.splitn(3, ' ');
     let cmd = parts.next()?;

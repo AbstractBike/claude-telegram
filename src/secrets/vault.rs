@@ -65,8 +65,13 @@ impl Vault {
     }
 
     pub fn read_public_key(&self, agent: &str) -> Result<String> {
-        let key_path = self.root.join("keys").join(format!("{}.pub", agent));
-        Ok(std::fs::read_to_string(key_path)?.trim().to_string())
+        // Support both key layouts:
+        //   {root}/keys/{agent}.pub          — flat format used in tests
+        //   {root}/keys/{agent}/pubkey.txt   — directory format used in production
+        let flat = self.root.join("keys").join(format!("{agent}.pub"));
+        let nested = self.root.join("keys").join(agent).join("pubkey.txt");
+        let path = if flat.exists() { flat } else { nested };
+        Ok(std::fs::read_to_string(path)?.trim().to_string())
     }
 
     fn record_access(&self, agent: &str, secret: &str, result: &str) {

@@ -11,8 +11,21 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use crate::config::Config;
 
+fn flag_value(args: &[String], flag: &str) -> Option<String> {
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(|s| s.as_str()) == Some("mcp-vault") {
+        let vault_root = flag_value(&args, "--vault-root")
+            .ok_or_else(|| anyhow::anyhow!("--vault-root required"))?;
+        let agent = flag_value(&args, "--agent")
+            .ok_or_else(|| anyhow::anyhow!("--agent required"))?;
+        return secrets::stdio_server::run_stdio_server(&vault_root, &agent).await;
+    }
+
     // 1. Init structured JSON logging
     observability::logging::init();
 
