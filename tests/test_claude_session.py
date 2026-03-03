@@ -36,14 +36,48 @@ async def test_session_stop_terminates_process():
     from bot.claude_session import ClaudeSession
     s = ClaudeSession(chat_id=123, work_dir="/tmp")
 
-    mock_proc = AsyncMock()
+    mock_proc = MagicMock()  # NOT AsyncMock — terminate() is sync
     mock_proc.returncode = None
+    mock_proc.terminate = MagicMock()
+    mock_proc.wait = AsyncMock(return_value=0)
+    mock_proc.kill = MagicMock()
     s.process = mock_proc
     s.started_at = datetime.now()
 
     await s.stop()
     mock_proc.terminate.assert_called_once()
     assert s.process is None
+
+
+@pytest.mark.asyncio
+async def test_send_captures_full_response():
+    from bot.claude_session import ClaudeSession
+    s = ClaudeSession(chat_id=1, work_dir="/tmp")
+
+    mock_proc = AsyncMock()
+    mock_proc.communicate = AsyncMock(return_value=(b"line one\n\nline two\n", None))
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        result = await s.send("hello")
+
+    assert "line one" in result
+    assert "line two" in result  # must NOT be truncated at blank line
+
+
+@pytest.mark.asyncio
+async def test_send_returns_timeout_message_on_timeout():
+    from bot.claude_session import ClaudeSession
+    s = ClaudeSession(chat_id=1, work_dir="/tmp")
+
+    mock_proc = AsyncMock()
+    mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+    mock_proc.kill = MagicMock()
+    mock_proc.wait = AsyncMock()
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        result = await s.send("hello")
+
+    assert "timeout" in result.lower()
 
 
 @pytest.mark.asyncio

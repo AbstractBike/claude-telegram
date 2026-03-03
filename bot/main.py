@@ -14,6 +14,11 @@ WORK_DIR = os.path.expanduser("~")
 
 def make_handler(allowed_users: set[str], sessions: dict):
     async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # Guard against anonymous or username-less users
+        if update.effective_user is None or update.effective_user.username is None:
+            await update.message.reply_text("Please set a Telegram username to use this bot.")
+            return
+
         username = f"@{update.effective_user.username}"
         chat_id = update.message.chat_id
         text = update.message.text or ""

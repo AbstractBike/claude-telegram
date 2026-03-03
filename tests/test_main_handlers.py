@@ -47,3 +47,27 @@ async def test_reset_command_stops_session():
     await handler(update, make_context())
     mock_session.stop.assert_called_once()
     assert 42 not in sessions
+
+
+@pytest.mark.asyncio
+async def test_no_username_rejected():
+    from bot.main import make_handler
+    handler = make_handler(allowed_users=set(), sessions={})
+    update = make_update(username="alice", text="hello")
+    update.effective_user.username = None  # username=None
+    await handler(update, make_context())
+    update.message.reply_text.assert_called_once()
+    call_text = update.message.reply_text.call_args[0][0]
+    assert "username" in call_text.lower()
+
+
+@pytest.mark.asyncio
+async def test_no_effective_user_rejected():
+    from bot.main import make_handler
+    handler = make_handler(allowed_users=set(), sessions={})
+    update = make_update(username="alice", text="hello")
+    update.effective_user = None  # anonymous channel post
+    await handler(update, make_context())
+    update.message.reply_text.assert_called_once()
+    call_text = update.message.reply_text.call_args[0][0]
+    assert "username" in call_text.lower()

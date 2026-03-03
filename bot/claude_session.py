@@ -45,22 +45,18 @@ class ClaudeSession:
         return f"Running — uptime: {uptime} | work_dir: {self.work_dir}"
 
     async def send(self, text: str) -> str:
-        if not self.is_running():
-            await self.start()
-        self.process.stdin.write((text + "\n").encode())
-        await self.process.stdin.drain()
-        response_lines = []
+        proc = await asyncio.create_subprocess_exec(
+            "claude",
+            "--dangerously-skip-permissions",
+            "-p", text,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=self.work_dir,
+        )
         try:
-            while True:
-                line = await asyncio.wait_for(
-                    self.process.stdout.readline(), timeout=60
-                )
-                if not line:
-                    break
-                decoded = line.decode()
-                response_lines.append(decoded)
-                if decoded.strip() == "" and response_lines:
-                    break
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=120)
+            return stdout.decode().strip() or "(no response)"
         except asyncio.TimeoutError:
-            pass
-        return "".join(response_lines).strip() or "(no response)"
+            proc.kill()
+            await proc.wait()
+            return "(timeout — no response after 120s)"
