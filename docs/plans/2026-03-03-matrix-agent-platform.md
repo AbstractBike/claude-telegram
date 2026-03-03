@@ -311,17 +311,17 @@ fn loads_config_from_toml() {
     let toml = r#"
 [matrix]
 homeserver = "http://192.168.0.4:8008"
-user = "@claude-bot:abstract.bike"
+user = "@claude-bot:matrix.pin"
 password_file = "/run/secrets/matrix-password"
 
 [auth]
-default_allowed_users = ["@digger:abstract.bike"]
+default_allowed_users = ["@digger:matrix.pin"]
 
 [rooms.control]
-room_id = "!abc123:abstract.bike"
+room_id = "!abc123:matrix.pin"
 
 [rooms.agents.nixos]
-room_id = "!def456:abstract.bike"
+room_id = "!def456:matrix.pin"
 work_dir = "/home/digger/git/nixos"
 store_dir = "/home/digger/.agent-store/nixos"
 timeout_secs = 300
@@ -335,8 +335,8 @@ metrics_port = 9090
 skywalking_endpoint = "http://192.168.0.4:11800"
 "#;
     let config: Config = toml::from_str(toml).unwrap();
-    assert_eq!(config.matrix.user, "@claude-bot:abstract.bike");
-    assert_eq!(config.auth.default_allowed_users, vec!["@digger:abstract.bike"]);
+    assert_eq!(config.matrix.user, "@claude-bot:matrix.pin");
+    assert_eq!(config.auth.default_allowed_users, vec!["@digger:matrix.pin"]);
     assert_eq!(config.rooms.agents.len(), 1);
     assert!(config.rooms.agents.contains_key("nixos"));
     assert_eq!(config.rooms.agents["nixos"].timeout_secs, Some(300));
@@ -729,7 +729,7 @@ async fn session_captures_stdout() {
 
 #[test]
 fn session_id_from_room_alias() {
-    let id = ClaudeSession::session_id_from_alias("nixos-agent:abstract.bike");
+    let id = ClaudeSession::session_id_from_alias("nixos-agent:matrix.pin");
     assert_eq!(id, "nixos-agent");
 }
 ```
@@ -784,7 +784,7 @@ impl ClaudeSession {
         Self { session_id, work_dir, timeout_secs, claude_bin: bin.into() }
     }
 
-    /// Derive session ID from room alias (e.g. "nixos-agent:abstract.bike" → "nixos-agent")
+    /// Derive session ID from room alias (e.g. "nixos-agent:matrix.pin" → "nixos-agent")
     pub fn session_id_from_alias(alias: &str) -> String {
         alias.split(':').next().unwrap_or(alias).to_string()
     }
@@ -910,7 +910,7 @@ async fn agent_state_history_appends() {
     let entry = HistoryEntry {
         event_id: "$abc".to_string(),
         ts: chrono::Utc::now(),
-        from: "@digger:abstract.bike".to_string(),
+        from: "@digger:matrix.pin".to_string(),
         text: "hello".to_string(),
         response_event: None,
         duration_ms: 1234,
@@ -1049,8 +1049,8 @@ use claude_chat::matrix::client::derive_session_id;
 
 #[test]
 fn session_id_derived_from_room_alias() {
-    assert_eq!(derive_session_id("#nixos-agent:abstract.bike"), "nixos-agent");
-    assert_eq!(derive_session_id("nixos-agent:abstract.bike"), "nixos-agent");
+    assert_eq!(derive_session_id("#nixos-agent:matrix.pin"), "nixos-agent");
+    assert_eq!(derive_session_id("nixos-agent:matrix.pin"), "nixos-agent");
     assert_eq!(derive_session_id("nixos-agent"), "nixos-agent");
 }
 ```
@@ -2644,7 +2644,7 @@ git commit -m "feat: enable claude-chat Matrix bot via Home Manager"
 **Step 1: Verify Rust binary works end-to-end (smoke test)**
 
 ```bash
-# Send a message in #claude-control:abstract.bike: "!list"
+# Send a message in #claude-control:matrix.pin: "!list"
 # Should see response in Matrix room
 systemctl --user status claude-chat  # must be active
 ```

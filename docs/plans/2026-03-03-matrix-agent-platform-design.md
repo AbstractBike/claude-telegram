@@ -45,42 +45,42 @@ claude-chat (Rust binary)
 ### Room Structure
 
 ```
-#claude-control:abstract.bike       — admin room (owner only)
-#nixos-agent:abstract.bike          — project ~/git/nixos
-#claude-chat-agent:abstract.bike    — project ~/git/claude-chat
-#home-agent:abstract.bike           — project ~/git/home
+#claude-control:matrix.pin       — admin room (owner only)
+#nixos-agent:matrix.pin          — project ~/git/nixos
+#claude-chat-agent:matrix.pin    — project ~/git/claude-chat
+#home-agent:matrix.pin           — project ~/git/home
 ```
 
-Single bot user: `@claude-bot:abstract.bike`, joined to all rooms.
+Single bot user: `@claude-bot:matrix.pin`, joined to all rooms.
 
 ### Configuration
 
 ```toml
 [matrix]
-homeserver = "http://192.168.0.4:8008"
-user = "@claude-bot:abstract.bike"
+homeserver = "http://127.0.0.1:8008"
+user = "@claude-bot:matrix.pin"
 password_file = "/run/secrets/matrix-password"
 
 [auth]
-default_allowed_users = ["@digger:abstract.bike"]
+default_allowed_users = ["@digger:matrix.pin"]
 
 [rooms.control]
-room_id = "!abc123:abstract.bike"
+room_id = "!abc123:matrix.pin"
 
 [rooms.agents.nixos]
-room_id = "!def456:abstract.bike"
+room_id = "!def456:matrix.pin"
 work_dir = "/home/digger/git/nixos"
 store_dir = "/home/digger/.agent-store/nixos"
 timeout_secs = 300
 
 [rooms.agents.claude-chat]
-room_id = "!ghi789:abstract.bike"
+room_id = "!ghi789:matrix.pin"
 work_dir = "/home/digger/git/claude-chat"
 store_dir = "/home/digger/.agent-store/claude-chat"
-allowed_users = ["@digger:abstract.bike", "@collaborator:abstract.bike"]
+allowed_users = ["@digger:matrix.pin", "@collaborator:matrix.pin"]
 
 [rooms.agents.home]
-room_id = "!jkl012:abstract.bike"
+room_id = "!jkl012:matrix.pin"
 work_dir = "/home/digger/git/home"
 store_dir = "/home/digger/.agent-store/home"
 # Secret access controlled by MCP policy.toml, not here
@@ -99,7 +99,7 @@ store_dir = "/home/digger/.agent-store/home"
 Deterministic from room alias, survives bot restarts:
 
 ```
-#nixos-agent:abstract.bike  →  session_id: "nixos-agent"
+#nixos-agent:matrix.pin  →  session_id: "nixos-agent"
 ```
 
 ### Command Execution
@@ -128,7 +128,7 @@ struct AgentState {
 Each agent maintains a local history at `~/.agent-store/<name>/history.jsonl`:
 
 ```json
-{"event_id":"$abc","ts":"2026-03-03T14:22:01Z","from":"@digger:abstract.bike","text":"update the flake","response_event":"$def","duration_ms":34500,"exit":"success"}
+{"event_id":"$abc","ts":"2026-03-03T14:22:01Z","from":"@digger:matrix.pin","text":"update the flake","response_event":"$def","duration_ms":34500,"exit":"success"}
 ```
 
 This is also emitted as structured logs to VictoriaLogs — the file is local backup, Grafana is the canonical source.

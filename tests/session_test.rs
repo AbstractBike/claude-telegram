@@ -3,11 +3,11 @@ use claude_chat::session::claude::ClaudeSession;
 #[test]
 fn session_id_from_room_alias() {
     assert_eq!(
-        ClaudeSession::session_id_from_alias("#nixos-agent:abstract.bike"),
+        ClaudeSession::session_id_from_alias("#nixos-agent:matrix.pin"),
         "nixos-agent"
     );
     assert_eq!(
-        ClaudeSession::session_id_from_alias("nixos-agent:abstract.bike"),
+        ClaudeSession::session_id_from_alias("nixos-agent:matrix.pin"),
         "nixos-agent"
     );
     assert_eq!(

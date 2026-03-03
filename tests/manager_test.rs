@@ -28,7 +28,7 @@ async fn agent_state_history_appends() {
     let entry = HistoryEntry {
         event_id: "$abc".to_string(),
         ts: chrono::Utc::now(),
-        from: "@digger:abstract.bike".to_string(),
+        from: "@digger:matrix.pin".to_string(),
         text: "hello agent".to_string(),
         response_event: Some("$def".to_string()),
         duration_ms: 1234,

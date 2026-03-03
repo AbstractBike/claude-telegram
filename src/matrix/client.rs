@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use crate::config::Config;
 
-/// Derive session ID from room alias (e.g. "#nixos-agent:abstract.bike" -> "nixos-agent")
+/// Derive session ID from room alias (e.g. "#nixos-agent:matrix.pin" -> "nixos-agent")
 pub fn derive_session_id(alias: &str) -> String {
     let stripped = alias.strip_prefix('#').unwrap_or(alias);
     stripped.split(':').next().unwrap_or(stripped).to_string()

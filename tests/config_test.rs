@@ -4,18 +4,18 @@ use claude_chat::config::Config;
 fn loads_config_from_toml_string() {
     let toml = r#"
 [matrix]
-homeserver = "http://192.168.0.4:8008"
-user = "@claude-bot:abstract.bike"
+homeserver = "http://127.0.0.1:8008"
+user = "@claude-bot:matrix.pin"
 password_file = "/run/secrets/matrix-password"
 
 [auth]
-default_allowed_users = ["@digger:abstract.bike"]
+default_allowed_users = ["@digger:matrix.pin"]
 
 [rooms.control]
-room_id = "!abc123:abstract.bike"
+room_id = "!abc123:matrix.pin"
 
 [rooms.agents.nixos]
-room_id = "!def456:abstract.bike"
+room_id = "!def456:matrix.pin"
 work_dir = "/home/digger/git/nixos"
 store_dir = "/home/digger/.agent-store/nixos"
 timeout_secs = 300
@@ -29,8 +29,8 @@ metrics_port = 9090
 skywalking_endpoint = "http://192.168.0.4:11800"
 "#;
     let config = Config::from_str(toml).unwrap();
-    assert_eq!(config.matrix.user, "@claude-bot:abstract.bike");
-    assert_eq!(config.auth.default_allowed_users, vec!["@digger:abstract.bike"]);
+    assert_eq!(config.matrix.user, "@claude-bot:matrix.pin");
+    assert_eq!(config.auth.default_allowed_users, vec!["@digger:matrix.pin"]);
     assert_eq!(config.rooms.agents.len(), 1);
     assert!(config.rooms.agents.contains_key("nixos"));
     assert_eq!(config.rooms.agents["nixos"].timeout_secs, Some(300));
