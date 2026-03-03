@@ -71,3 +71,26 @@ async def test_no_effective_user_rejected():
     update.message.reply_text.assert_called_once()
     call_text = update.message.reply_text.call_args[0][0]
     assert "username" in call_text.lower()
+
+
+@pytest.mark.asyncio
+async def test_slash_reset_stops_session():
+    from bot.main import make_handler
+    mock_session = AsyncMock()
+    sessions = {42: mock_session}
+    handler = make_handler(allowed_users=set(), sessions=sessions)
+    update = make_update(username="alice", text="/reset", chat_id=42)
+    await handler(update, make_context())
+    mock_session.stop.assert_called_once()
+    assert 42 not in sessions
+
+
+@pytest.mark.asyncio
+async def test_help_command_returns_help_text():
+    from bot.main import make_handler
+    handler = make_handler(allowed_users=set(), sessions={})
+    update = make_update(username="alice", text="/help", chat_id=1)
+    await handler(update, make_context())
+    update.message.reply_text.assert_called_once()
+    call_text = update.message.reply_text.call_args[0][0]
+    assert "Claude" in call_text
