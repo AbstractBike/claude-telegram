@@ -37,6 +37,7 @@
             export PYTHONPATH=${self}/
             export TELEGRAM_TOKEN=$(cat ${cfg.tokenFile})
             export ALLOWED_USERS="${lib.concatStringsSep "," cfg.allowedUsers}"
+            export CLAUDE_PATH="${cfg.claudePath}"
             exec ${pythonEnv}/bin/python -m bot.main
           '';
         in {
@@ -50,6 +51,11 @@
               type = lib.types.listOf lib.types.str;
               default = [];
               description = "List of Telegram @usernames allowed to use the bot (empty = open)";
+            };
+            claudePath = lib.mkOption {
+              type = lib.types.str;
+              default = "claude";
+              description = "Full path to the claude binary (required when systemd PATH does not include it)";
             };
           };
 

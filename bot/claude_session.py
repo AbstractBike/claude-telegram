@@ -2,6 +2,8 @@ import asyncio
 import os
 from datetime import datetime
 
+CLAUDE_BIN = os.environ.get("CLAUDE_PATH", "claude")
+
 
 class ClaudeSession:
     def __init__(self, chat_id: int, work_dir: str):
@@ -12,7 +14,7 @@ class ClaudeSession:
 
     async def start(self) -> None:
         self.process = await asyncio.create_subprocess_exec(
-            "claude",
+            CLAUDE_BIN,
             "--dangerously-skip-permissions",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
@@ -46,7 +48,7 @@ class ClaudeSession:
 
     async def send(self, text: str) -> str:
         proc = await asyncio.create_subprocess_exec(
-            "claude",
+            CLAUDE_BIN,
             "--dangerously-skip-permissions",
             "-p", text,
             stdout=asyncio.subprocess.PIPE,
