@@ -8,6 +8,7 @@ mod observability;
 
 use anyhow::Result;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use crate::config::Config;
 
 #[tokio::main]
@@ -20,7 +21,7 @@ async fn main() -> Result<()> {
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| Config::default_path());
 
-    let config = Config::load(&config_path)?;
+    let config = Arc::new(Config::load(&config_path)?);
     tracing::info!(
         config = %config_path.display(),
         rooms = config.rooms.agents.len(),
@@ -51,7 +52,7 @@ async fn main() -> Result<()> {
 
     // 6. Run sync loop (blocks until error or shutdown)
     tracing::info!("bot ready, starting sync");
-    matrix::client::run_sync(client).await?;
+    matrix::client::run_sync(client, config).await?;
 
     Ok(())
 }
