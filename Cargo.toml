@@ -1,0 +1,49 @@
+[package]
+name = "claude-chat"
+version = "0.5.0"
+edition = "2021"
+
+[[bin]]
+name = "claude-chat"
+path = "src/main.rs"
+
+[dependencies]
+# Matrix
+matrix-sdk = { version = "0.16", default-features = false, features = ["rustls-tls"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = "0.18"
+
+# HTTP (metrics endpoint)
+axum = "0.8"
+
+# Age encryption
+age = "0.11"
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+uuid = { version = "1", features = ["v4"] }
+regex = "1"
+base64 = "0.22"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3"
