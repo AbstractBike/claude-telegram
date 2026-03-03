@@ -61,11 +61,18 @@ impl BwrapBuilder {
             "--die-with-parent".into(),
         ]);
 
-        // Propagate proxy and TLS env vars into sandbox
-        for var in &["HTTPS_PROXY", "HTTP_PROXY", "NODE_EXTRA_CA_CERTS", "ANTHROPIC_API_KEY"] {
-            if let Ok(val) = std::env::var(var) {
+        // Propagate proxy and TLS env vars into sandbox.
+        // We use CLAUDE_* prefixed vars to avoid contaminating the bot's own
+        // HTTP client (which uses rustls and doesn't support mitmproxy).
+        for (env_var, sandbox_var) in &[
+            ("CLAUDE_HTTPS_PROXY", "HTTPS_PROXY"),
+            ("CLAUDE_HTTP_PROXY", "HTTP_PROXY"),
+            ("CLAUDE_NODE_EXTRA_CA_CERTS", "NODE_EXTRA_CA_CERTS"),
+            ("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
+        ] {
+            if let Ok(val) = std::env::var(env_var) {
                 args.extend_from_slice(&[
-                    "--setenv".into(), var.to_string(), val,
+                    "--setenv".into(), sandbox_var.to_string(), val,
                 ]);
             }
         }
