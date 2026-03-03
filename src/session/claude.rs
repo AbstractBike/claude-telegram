@@ -13,14 +13,25 @@ pub struct ClaudeSession {
     claude_bin: String,
 }
 
+/// Resolve a binary path by following symlinks to get the real path.
+/// This is needed for bwrap sandboxing, where symlinks outside the
+/// sandbox (e.g. ~/.nix-profile/bin/claude) won't resolve.
+fn resolve_bin(bin: impl Into<String>) -> String {
+    let path = bin.into();
+    std::fs::canonicalize(&path)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or(path)
+}
+
 impl ClaudeSession {
     pub fn new(session_id: String, work_dir: String, timeout_secs: u64) -> Self {
+        let bin = std::env::var("CLAUDE_PATH").unwrap_or_else(|_| "claude".to_string());
         Self {
             session_id,
             work_dir,
             store_dir: None,
             timeout_secs,
-            claude_bin: std::env::var("CLAUDE_PATH").unwrap_or_else(|_| "claude".to_string()),
+            claude_bin: resolve_bin(bin),
         }
     }
 
@@ -35,7 +46,7 @@ impl ClaudeSession {
             work_dir,
             store_dir: None,
             timeout_secs,
-            claude_bin: bin.into(),
+            claude_bin: resolve_bin(bin),
         }
     }
 
@@ -51,7 +62,7 @@ impl ClaudeSession {
             work_dir,
             store_dir: Some(store_dir),
             timeout_secs,
-            claude_bin: claude_bin.into(),
+            claude_bin: resolve_bin(claude_bin),
         }
     }
 

@@ -15,38 +15,45 @@ impl BwrapBuilder {
 
     /// Returns the bwrap arguments (not including "bwrap" itself or the wrapped command)
     pub fn build_args(&self) -> Vec<String> {
-        vec![
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let claude_config = format!("{home}/.claude");
+
+        let mut args = vec![
             // Read-only system binds
-            "--ro-bind".into(),
-            "/nix".into(),
-            "/nix".into(),
-            "--ro-bind".into(),
-            "/usr".into(),
-            "/usr".into(),
-            "--ro-bind".into(),
-            "/etc/resolv.conf".into(),
-            "/etc/resolv.conf".into(),
+            "--ro-bind".into(), "/nix".into(), "/nix".into(),
+            "--ro-bind".into(), "/usr".into(), "/usr".into(),
+            "--ro-bind".into(), "/etc/resolv.conf".into(), "/etc/resolv.conf".into(),
             // Minimal proc/dev
-            "--proc".into(),
-            "/proc".into(),
-            "--dev".into(),
-            "/dev".into(),
+            "--proc".into(), "/proc".into(),
+            "--dev".into(), "/dev".into(),
             // Ephemeral /tmp
-            "--tmpfs".into(),
-            "/tmp".into(),
+            "--tmpfs".into(), "/tmp".into(),
+            // Home directory (tmpfs base, then selective binds)
+            "--tmpfs".into(), home.clone(),
             // Agent workdir (read-write)
-            "--bind".into(),
-            self.work_dir.clone(),
-            self.work_dir.clone(),
-            // Agent store (read-write, persistent installs)
-            "--bind".into(),
-            self.store_dir.clone(),
-            self.store_dir.clone(),
+            "--bind".into(), self.work_dir.clone(), self.work_dir.clone(),
+            // Agent store (read-write, persistent state)
+            "--bind".into(), self.store_dir.clone(), self.store_dir.clone(),
+        ];
+
+        // Bind .claude config read-only if it exists (needed for Claude CLI)
+        if std::path::Path::new(&claude_config).exists() {
+            args.extend_from_slice(&[
+                "--ro-bind".into(), claude_config.clone(), claude_config,
+            ]);
+        }
+
+        // Set HOME and working directory
+        args.extend_from_slice(&[
+            "--setenv".into(), "HOME".into(), home,
+            "--chdir".into(), self.work_dir.clone(),
             // Isolation
             "--unshare-all".into(),
             "--share-net".into(),
             "--die-with-parent".into(),
-        ]
+        ]);
+
+        args
     }
 
     /// Wrap a command with bwrap sandboxing
