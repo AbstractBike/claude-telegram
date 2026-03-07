@@ -4,7 +4,7 @@
 
 **Goal:** Enrich job postings with raw dimensions (salary, work mode, applicants, etc.) extracted via Firecrawl LLM, feed them into a configurable rank weight map, and produce LLM-generated friendly summaries in the email.
 
-**Architecture:** New `scrape` subcommand in hunter-engine reads jobs from stdin, calls Firecrawl `/v1/scrape` with a JSON schema generated from `dimensions.toml`, and writes enriched jobs to stdout. The ranker adds weighted dimension deltas on top of TF-IDF. The renderer always calls Claude API for friendly 2–3 line per-job summaries. Max 10 jobs/day.
+**Architecture:** New `scrape` subcommand in hunter-engine reads jobs from stdin, calls Firecrawl `/v1/scrape` with a JSON schema generated from `dimensions.toml`, and writes enriched jobs to stdout. The ranker adds weighted dimension deltas on top of TF-IDF. The renderer always calls Claude API for friendly 2–3 line per-job summaries. Daily mode sends at most `daily_limit` jobs (default 10, per-person in `config.toml`, asked during onboarding). Weekly mode sends all ranked jobs with no limit.
 
 **Tech Stack:** Rust (tokio/async, reqwest, serde_json), TOML config (toml crate), Firecrawl `/v1/scrape` with `jsonOptions`, Claude Messages API (claude-haiku-4-5-20251001 for render).
 
@@ -1163,13 +1163,49 @@ cd ~/hunters && git add src/render.rs render-prompt.md Cargo.toml Cargo.lock && 
 
 ---
 
-### Task 6: Update `job-hunter.sh` pipeline + `sources.md`
+### Task 6: Add `daily_limit` to config + update `job-hunter.sh` pipeline + `sources.md`
 
 **Files:**
+- Modify: `~/hunters/config.toml`
 - Modify: `~/hunters/job-hunter.sh`
 - Modify: `~/hunters/mar/sources.md`
 
-**Step 1: Update pipeline in `job-hunter.sh`**
+**Context:** Daily mode caps the sent jobs at `daily_limit` (default 10, per-person).
+Weekly mode has no cap — sends all ranked jobs. The limit is read from `config.toml`
+under `[person.<slug>]` (or `[defaults]` as fallback). Asked during onboarding.
+
+**Step 1: Add `daily_limit` to `~/hunters/config.toml`**
+
+In `[defaults]`:
+```toml
+[defaults]
+search_limit = 10
+daily_limit = 10      # max jobs sent per daily run; weekly sends all
+```
+
+In `[person.mar]` (or equivalent per-person section), ask during onboarding:
+```toml
+[person.mar]
+daily_limit = 10
+```
+
+**Step 2: Read `daily_limit` in `job-hunter.sh`**
+
+After the existing config parsing block, add:
+```bash
+DAILY_LIMIT=$(sed -n "/^\[person\.$SLUG\]/,/^\[/{ s/^daily_limit *= *\([0-9]*\).*/\1/p; }" "$CONFIG" | head -1)
+[[ -z "$DAILY_LIMIT" ]] && DAILY_LIMIT=$(grep '^daily_limit' "$CONFIG" | head -1 | grep -oP '\d+' || echo 10)
+```
+
+Then after `RANKED` is computed, apply the cap for daily mode:
+```bash
+if [[ "$MODE" == "daily" && "$DAILY_LIMIT" -gt 0 ]]; then
+  RANKED=$(echo "$RANKED" | jq ".[0:$DAILY_LIMIT]")
+  JOB_COUNT=$(echo "$RANKED" | jq 'length')
+fi
+```
+
+**Step 3: Update pipeline in `job-hunter.sh`**
 
 Find the `RANKED=$(...)` block (lines ~65-67) and replace with:
 
