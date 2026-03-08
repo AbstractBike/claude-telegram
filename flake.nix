@@ -26,7 +26,7 @@
           version = "0.5.0";
           src = self;
           cargoLock.lockFile = ./Cargo.lock;
-          nativeBuildInputs = with pkgs; [ pkg-config ];
+          nativeBuildInputs = with pkgs; [ pkg-config protobuf ];
           buildInputs = with pkgs; [ openssl ];
         };
 
