@@ -16,6 +16,8 @@ use crate::matrix::control::parse_control_command;
 use crate::matrix::handler::{classify_message, check_auth, AuthResult, MessageSource};
 use crate::matrix::sender::send_text;
 use crate::session::claude::ClaudeSession;
+use crate::temporal::client::TemporalDispatcher;
+use crate::temporal::workflow::IncomingMessage;
 
 /// Write `.mcp.json` into the agent's work_dir so Claude CLI picks up the vault MCP server.
 async fn write_mcp_config(work_dir: &str, agent_name: &str, vault_root: &str) {
@@ -66,7 +68,11 @@ pub async fn build_client(config: &Config) -> Result<Client> {
 
 /// Run the Matrix sync loop forever. Reconnects on errors with exponential backoff.
 /// This function only returns if an unrecoverable error occurs during initial setup.
-pub async fn run_sync(client: Client, config: Arc<Config>) -> Result<()> {
+pub async fn run_sync(
+    client: Client,
+    config: Arc<Config>,
+    temporal: Option<Arc<TemporalDispatcher>>,
+) -> Result<()> {
     tracing::info!("starting Matrix sync loop");
 
     // Gate to skip messages received during initial sync
@@ -78,10 +84,12 @@ pub async fn run_sync(client: Client, config: Arc<Config>) -> Result<()> {
         let config = config.clone();
         let own_user = own_user_id.clone();
         let ready = ready.clone();
+        let temporal = temporal.clone();
         move |event: SyncRoomMessageEvent, room: Room| {
             let config = config.clone();
             let own_user = own_user.clone();
             let ready = ready.clone();
+            let temporal = temporal.clone();
             async move {
                 // Skip messages until initial sync completes
                 if !ready.load(Ordering::Relaxed) {
@@ -92,7 +100,7 @@ pub async fn run_sync(client: Client, config: Arc<Config>) -> Result<()> {
                     SyncRoomMessageEvent::Original(e) => e,
                     _ => return,
                 };
-                if let Err(e) = handle_room_message(event, room, &config, &own_user).await {
+                if let Err(e) = handle_room_message(event, room, &config, &own_user, temporal.as_deref()).await {
                     tracing::error!(error = %e, "failed to handle message");
                 }
             }
@@ -157,6 +165,7 @@ async fn handle_room_message(
     room: Room,
     config: &Config,
     own_user: &str,
+    temporal: Option<&TemporalDispatcher>,
 ) -> Result<()> {
     // Ignore own messages
     if event.sender.as_str() == own_user {
@@ -213,6 +222,13 @@ async fn handle_room_message(
     // Classify message
     let source = classify_message(&body, config.inter_agent.max_depth);
 
+    // Pre-extract depth from agent messages before consuming source in the match
+    let agent_depth: u8 = if let MessageSource::AgentMessage { depth, .. } = &source {
+        *depth
+    } else {
+        0
+    };
+
     match source {
         MessageSource::ControlCommand(cmd) => {
             tracing::info!(agent = %agent_name, cmd = %cmd, "control command");
@@ -229,38 +245,63 @@ async fn handle_room_message(
             }
         }
         MessageSource::UserMessage(text) | MessageSource::AgentMessage { text, .. } => {
-            tracing::info!(agent = %agent_name, "spawning Claude session");
+            tracing::info!(agent = %agent_name, "handling message");
 
-            if agent_config.encrypt {
-                if let Some(ref vault) = config.vault {
-                    write_mcp_config(&agent_config.work_dir, &agent_name, &vault.root).await;
+            if let Some(dispatcher) = temporal {
+                // Temporal path: ensure workflow is running, then signal it
+                let wf_input = crate::temporal::client::TemporalDispatcher::build_workflow_input(
+                    &agent_name, agent_config, config,
+                );
+                if let Err(e) = dispatcher.ensure_running(&agent_name, wf_input).await {
+                    tracing::warn!(agent = %agent_name, error = %e, "failed to ensure workflow running");
                 }
-            }
-
-            let session = ClaudeSession::new_sandboxed(
-                agent_name.clone(),
-                agent_config.work_dir.clone(),
-                agent_config.store_dir.clone(),
-                agent_config.timeout(),
-                std::env::var("CLAUDE_PATH").unwrap_or_else(|_| "claude".to_string()),
-            )
-            .with_claude_home(config.claude_home.clone());
-
-            let response = match session.send_raw(&text).await {
-                Ok(resp) => resp,
-                Err(e) => {
-                    tracing::error!(error = %e, agent = %agent_name, "Claude session error");
-                    counter!("claude_chat_session_errors_total",
-                        "agent" => agent_name.clone()).increment(1);
-                    format!("(error: {e})")
+                let event_id = event.event_id.to_string();
+                let msg = IncomingMessage {
+                    text,
+                    from: sender.clone(),
+                    event_id,
+                    depth: agent_depth,
+                };
+                if let Err(e) = dispatcher.send_message(&agent_name, msg).await {
+                    tracing::error!(error = %e, agent = %agent_name, "failed to signal workflow");
+                    if let Err(e2) = send_text(&room, &format!("(failed to dispatch: {e})")).await {
+                        tracing::error!(error = %e2, "failed to send error message");
+                    }
                 }
-            };
+                // Fire-and-forget: workflow will send the response
+            } else {
+                // Direct path (no Temporal): run Claude inline
+                if agent_config.encrypt {
+                    if let Some(ref vault) = config.vault {
+                        write_mcp_config(&agent_config.work_dir, &agent_name, &vault.root).await;
+                    }
+                }
 
-            if let Err(e) = send_text(&room, &response).await {
-                tracing::error!(error = %e, agent = %agent_name, "failed to send response");
+                let session = ClaudeSession::new_sandboxed(
+                    agent_name.clone(),
+                    agent_config.work_dir.clone(),
+                    agent_config.store_dir.clone(),
+                    agent_config.timeout(),
+                    std::env::var("CLAUDE_PATH").unwrap_or_else(|_| "claude".to_string()),
+                )
+                .with_claude_home(config.claude_home.clone());
+
+                let response = match session.send_raw(&text).await {
+                    Ok(resp) => resp,
+                    Err(e) => {
+                        tracing::error!(error = %e, agent = %agent_name, "Claude session error");
+                        counter!("claude_chat_session_errors_total",
+                            "agent" => agent_name.clone()).increment(1);
+                        format!("(error: {e})")
+                    }
+                };
+
+                if let Err(e) = send_text(&room, &response).await {
+                    tracing::error!(error = %e, agent = %agent_name, "failed to send response");
+                }
+
+                tracing::info!(agent = %agent_name, response_len = response.len(), "response sent");
             }
-
-            tracing::info!(agent = %agent_name, response_len = response.len(), "response sent");
         }
     }
 

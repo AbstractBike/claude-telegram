@@ -5,3 +5,4 @@ pub mod session;
 pub mod matrix;
 pub mod agent;
 pub mod secrets;
+pub mod temporal;

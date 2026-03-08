@@ -16,6 +16,24 @@ pub struct Config {
     /// Path to a minimal ~/.claude directory for sandboxed Claude CLI sessions.
     /// If unset, falls back to $HOME/.claude (which may include heavy plugins).
     pub claude_home: Option<String>,
+    pub temporal: Option<TemporalConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TemporalConfig {
+    pub endpoint: String,
+    #[serde(default = "default_temporal_namespace")]
+    pub namespace: String,
+    #[serde(default = "default_temporal_task_queue")]
+    pub task_queue: String,
+}
+
+fn default_temporal_namespace() -> String {
+    "default".to_string()
+}
+
+fn default_temporal_task_queue() -> String {
+    "claude-chat".to_string()
 }
 
 #[derive(Debug, Deserialize, Clone)]

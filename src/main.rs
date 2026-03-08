@@ -5,6 +5,7 @@ mod sandbox;
 mod agent;
 mod secrets;
 mod observability;
+mod temporal;
 
 use anyhow::Result;
 use std::net::SocketAddr;
@@ -60,7 +61,31 @@ async fn main() -> Result<()> {
         }
     });
 
-    // 5. Connect and run — retry forever on connection failures
+    // 5. Connect to Temporal and start workflows if configured
+    let temporal_dispatcher = if config.temporal.is_some() {
+        match temporal::client::TemporalDispatcher::new(&config).await {
+            Ok(dispatcher) => {
+                let dispatcher = Arc::new(dispatcher);
+                for (name, agent_cfg) in &config.rooms.agents {
+                    let wf_input = temporal::client::TemporalDispatcher::build_workflow_input(
+                        name, agent_cfg, &config,
+                    );
+                    if let Err(e) = dispatcher.ensure_running(name, wf_input).await {
+                        tracing::warn!(agent = %name, error = %e, "failed to ensure workflow running");
+                    }
+                }
+                Some(dispatcher)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "failed to connect to Temporal, running without it");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // 6. Connect and run Matrix — retry forever on connection failures
     let mut backoff_secs = 1u64;
     let max_backoff_secs = 120u64;
 
@@ -71,7 +96,7 @@ async fn main() -> Result<()> {
                 backoff_secs = 1;
 
                 // run_sync loops forever internally; if it returns, something went wrong
-                if let Err(e) = matrix::client::run_sync(client, config.clone()).await {
+                if let Err(e) = matrix::client::run_sync(client, config.clone(), temporal_dispatcher.clone()).await {
                     tracing::error!(error = %e, "sync loop exited with error, reconnecting");
                 }
             }
