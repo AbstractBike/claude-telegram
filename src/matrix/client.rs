@@ -54,16 +54,21 @@ pub async fn build_client(config: &Config) -> Result<Client> {
         .homeserver_url(&config.matrix.homeserver)
         .build()
         .await?;
+    re_login(&client, config).await?;
+    Ok(client)
+}
 
+/// Re-authenticate an existing client (e.g. after M_UNKNOWN_TOKEN).
+/// matrix_sdk::Client is internally Arc-wrapped, so all clones are updated.
+pub async fn re_login(client: &Client, config: &Config) -> Result<()> {
     let password = config.matrix_password()?;
     client
         .matrix_auth()
         .login_username(&config.matrix.user, &password)
         .initial_device_display_name("claude-chat")
         .await?;
-
     tracing::info!(user = %config.matrix.user, "logged in to Matrix");
-    Ok(client)
+    Ok(())
 }
 
 /// Run the Matrix sync loop forever. Reconnects on errors with exponential backoff.
